@@ -1,0 +1,37 @@
+{
+  "name": "hostel-outpass",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+
+    "cypress": "cypress open",
+    "cypress:run": "cypress run"
+  },
+  "dependencies": {
+    "axios": "^1.13.2",
+    "framer-motion": "^12.23.24",
+    "html5-qrcode": "^2.3.8",
+    "next": "16.0.2",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.28.5",
+    "@babel/preset-env": "^7.28.5",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-jest": "^30.2.0",
+    "cypress": "^15.7.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.2",
+    "supertest": "^7.1.4",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

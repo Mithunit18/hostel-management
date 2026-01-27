@@ -63,10 +63,17 @@ pipeline {
         stage("Build Backend") {
             steps {
                 dir("server") {
-                    bat "npm run build || echo Skipping backend build"
+                    bat """
+                    npm run build
+                    IF %ERRORLEVEL% NEQ 0 (
+                        echo Skipping backend build
+                        EXIT /B 0
+                    )
+                    """
                 }
             }
         }
+
 
         stage("Docker Login") {
             steps {

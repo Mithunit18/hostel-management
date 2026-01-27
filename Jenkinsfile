@@ -37,7 +37,7 @@ pipeline {
             steps {
                 dir("server") {
                     withCredentials([
-                        string(credentialsId: 'mongo-uri', variable: 'MONGO_URI')
+                        string(credentialsId: 'mongo-uri-test', variable: 'MONGO_URI')
                     ]) {
                         bat """
                         set NODE_ENV=test
@@ -47,6 +47,7 @@ pipeline {
                 }
             }
         }
+
 
         stage("Build Frontend") {
             steps {

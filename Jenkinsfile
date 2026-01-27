@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     environment {
+        NODE_ENV = "production"        
         DOCKER_USER = "mithun039"
         PROJECT = "hostel-outpass"
         FRONTEND_DOCKERFILE = "Dockerfile.frontend"
@@ -34,6 +35,9 @@ pipeline {
         }
 
         stage("Run Backend Tests") {
+            when {
+                environment name: 'NODE_ENV', value: 'test'
+            }
             steps {
                 dir("server") {
                     withCredentials([
@@ -47,7 +51,6 @@ pipeline {
                 }
             }
         }
-
 
         stage("Build Frontend") {
             steps {

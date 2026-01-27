@@ -36,7 +36,14 @@ pipeline {
         stage("Run Backend Tests") {
             steps {
                 dir("server") {
-                    bat "npm test || echo No tests found"
+                    withCredentials([
+                        string(credentialsId: 'mongo-uri', variable: 'MONGO_URI')
+                    ]) {
+                        bat """
+                        set NODE_ENV=test
+                        npm test
+                        """
+                    }
                 }
             }
         }

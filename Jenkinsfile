@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        NODE_ENV = "production"        
+        NODE_ENV = "production"
         DOCKER_USER = "mithun039"
         PROJECT = "hostel-outpass"
         FRONTEND_DOCKERFILE = "Dockerfile.frontend"
@@ -64,16 +64,14 @@ pipeline {
             steps {
                 dir("server") {
                     bat """
-                    npm run build
-                    IF %ERRORLEVEL% NEQ 0 (
+                    npm run build || (
                         echo Skipping backend build
-                        EXIT /B 0
+                        exit /b 0
                     )
                     """
                 }
             }
         }
-
 
         stage("Docker Login") {
             steps {

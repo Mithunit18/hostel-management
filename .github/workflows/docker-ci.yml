@@ -53,8 +53,16 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          command_timeout: 30m
+          command_timeout: 10m
           script: |
+            set -e
             cd ~/hostel-management
-            docker compose pull
+
+            echo "Pulling images..."
+            docker compose pull --no-progress
+
+            echo "Starting containers..."
             docker compose up -d --no-build
+
+            echo "Deployment finished"
+

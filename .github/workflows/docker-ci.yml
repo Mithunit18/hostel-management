@@ -1,4 +1,4 @@
-name: CD - Build & Push Docker Images
+name: Auto Deploy via Ansible
 
 on:
   push:
@@ -6,31 +6,26 @@ on:
       - main
 
 jobs:
-  build-and-push:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.CONTROL_EC2_IP }} >> ~/.ssh/known_hosts
 
-      - name: Build & Push Backend Image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: Dockerfile.backend
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest
-
-      - name: Build & Push Frontend Image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: Dockerfile.frontend
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-frontend:latest
+      - name: Deploy using Ansible on Control Node
+        run: |
+          ssh ubuntu@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
+            cd ~/ansible/hostel
+            echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.vault_pass
+            chmod 600 ~/.vault_pass
+            ansible-playbook deploy.yml --vault-password-file ~/.vault_pass
+            rm -f ~/.vault_pass
+          EOF

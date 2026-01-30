@@ -25,7 +25,7 @@ jobs:
           docker build -t ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-frontend:latest -f Dockerfile.frontend .
           docker push ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-frontend:latest
 
-      # 4️⃣ Setup SSH key
+      # 4️⃣ Setup SSH
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -33,25 +33,35 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.CONTROL_EC2_IP }} >> ~/.ssh/known_hosts
 
-      # 5️⃣ Detect current live color
-      - name: Detect live color
+      # 5️⃣ Detect inactive color (INDUSTRY-GRADE)
+      - name: Detect inactive color via Ansible
         id: detect
-        run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
-            if grep -q "proxy_pass http://127.0.0.1:3001" /etc/nginx/sites-available/hostel; then
-              echo "inactive_color=green" >> $GITHUB_OUTPUT
-            else
-              echo "inactive_color=blue" >> $GITHUB_OUTPUT
-            fi
-          EOF
-
-      # 6️⃣ Deploy & switch using Ansible
-      - name: Deploy and Switch Traffic
         run: |
           ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
             echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.vault_pass
             chmod 600 ~/.vault_pass
 
+            cd ~/ansible/hostel
+
+            OUTPUT=$(ansible-playbook -i inventory.ini deploy.yml --check \
+              -e live_color=blue \
+              --vault-password-file ~/.vault_pass)
+
+            echo "$OUTPUT" | tee /tmp/ansible.out
+
+            if echo "$OUTPUT" | grep -q "current_live_color: blue"; then
+              echo "inactive_color=green" > /tmp/color.txt
+            else
+              echo "inactive_color=blue" > /tmp/color.txt
+            fi
+          EOF
+
+          echo "inactive_color=$(ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} cat /tmp/color.txt | cut -d= -f2)" >> $GITHUB_OUTPUT
+
+      # 6️⃣ Deploy & switch traffic
+      - name: Deploy and Switch Traffic
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
             cd ~/ansible/hostel
             ansible-playbook -i inventory.ini deploy.yml \
               -e live_color=${{ steps.detect.outputs.inactive_color }} \

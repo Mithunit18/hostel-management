@@ -1,0 +1,50 @@
+# 1️⃣ Detect current live color (source of truth)
+- name: Detect current live color
+  shell: |
+    if [ -f /etc/nginx/sites-available/hostel ] && grep -q "127.0.0.1:3001" /etc/nginx/sites-available/hostel; then
+      echo blue
+    else
+      echo green
+    fi
+  register: live_color_result
+  changed_when: false
+
+- name: Publish current live color
+  set_stats:
+    data:
+      current_live_color: "{{ live_color_result.stdout }}"
+
+# 2️⃣ Nginx installation & config
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: Install nginx
+  apt:
+    name: nginx
+    state: present
+
+- name: Remove default nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: restart nginx
+
+- name: Deploy hostel nginx config
+  template:
+    src: hostel.conf.j2
+    dest: /etc/nginx/sites-available/hostel
+  notify: restart nginx
+
+- name: Enable hostel nginx site
+  file:
+    src: /etc/nginx/sites-available/hostel
+    dest: /etc/nginx/sites-enabled/hostel
+    state: link
+  notify: restart nginx
+
+- name: Ensure nginx is running
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes

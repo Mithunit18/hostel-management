@@ -1,0 +1,49 @@
+- name: Deploy Hostel Outpass App
+  hosts: app_server
+  become: yes
+
+  vars_files:
+    - secrets.yml
+
+  vars:
+    app_dir: /home/ubuntu/hostel-app
+    repo_url: https://github.com/Mithunit18/hostel-management.git
+
+  roles:
+    - nginx
+
+  tasks:
+    - name: Install git
+      apt:
+        name: git
+        state: present
+        update_cache: yes
+
+    - name: Clone project repository
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        version: main
+        force: yes
+
+    - name: Create backend .env file
+      copy:
+        dest: "{{ app_dir }}/server/.env"
+        content: |
+          PORT={{ PORT }}
+          NODE_ENV={{ NODE_ENV }}
+          JWT_SECRET={{ JWT_SECRET }}
+          MONGO_URI={{ MONGO_URI }}
+          TEST_MONGO_URI={{ TEST_MONGO_URI }}
+          EmailUser={{ EMAIL_USER }}
+          EmailPass={{ EMAIL_PASS }}
+
+    - name: Pull latest Docker images
+      command: docker compose pull
+      args:
+        chdir: "{{ app_dir }}"
+
+    - name: Recreate containers (frontend + backend)
+      command: docker compose up -d --force-recreate
+      args:
+        chdir: "{{ app_dir }}"

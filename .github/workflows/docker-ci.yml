@@ -1,4 +1,4 @@
-name: Auto Deploy via Ansible
+name: Zero Downtime Blue-Green Deploy
 
 on:
   push:
@@ -10,22 +10,50 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      # 1️⃣ Checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
 
+      # 2️⃣ Login to Docker Hub
+      - name: Docker Login
+        run: |
+          echo "${{ secrets.DOCKER_TOKEN }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      # 3️⃣ Build & push frontend image
+      - name: Build and Push Frontend Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-frontend:latest -f Dockerfile.frontend .
+          docker push ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-frontend:latest
+
+      # 4️⃣ Setup SSH key
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.CONTROL_EC2_IP }} >> ~/.ssh/known_hosts
 
-      - name: Deploy using Ansible on Control Node
+      # 5️⃣ Detect current live color
+      - name: Detect live color
+        id: detect
         run: |
-          ssh ubuntu@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
-            cd ~/ansible/hostel
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
+            if grep -q "proxy_pass http://127.0.0.1:3001" /etc/nginx/sites-available/hostel; then
+              echo "inactive_color=green" >> $GITHUB_OUTPUT
+            else
+              echo "inactive_color=blue" >> $GITHUB_OUTPUT
+            fi
+          EOF
+
+      # 6️⃣ Deploy & switch using Ansible
+      - name: Deploy and Switch Traffic
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
             echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.vault_pass
             chmod 600 ~/.vault_pass
-            ansible-playbook deploy.yml --vault-password-file ~/.vault_pass
-            rm -f ~/.vault_pass
+
+            cd ~/ansible/hostel
+            ansible-playbook -i inventory.ini deploy.yml \
+              -e live_color=${{ steps.detect.outputs.inactive_color }} \
+              --vault-password-file ~/.vault_pass
           EOF

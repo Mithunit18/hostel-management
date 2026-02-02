@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout latest code
+      # 1️⃣ Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -19,25 +19,19 @@ jobs:
         run: |
           echo "${{ secrets.DOCKER_TOKEN }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      # 3️⃣ Build & push FRONTEND image
+      # 3️⃣ Build & push FRONTEND image (blue–green)
       - name: Build and Push Frontend Image
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-frontend:latest -f Dockerfile.frontend .
           docker push ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-frontend:latest
 
-      # 4️⃣ Build & push BACKEND image
+      # 4️⃣ Build & push BACKEND image (rolling)
       - name: Build and Push Backend Image
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest -f Dockerfile.backend .
           docker push ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest
 
-      # 5️⃣ Verify images exist on Docker Hub (fail fast if push failed)
-      - name: Verify Docker Images
-        run: |
-          docker pull ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-frontend:latest
-          docker pull ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest
-
-      # 6️⃣ Setup SSH to Control Node
+      # 5️⃣ Setup SSH
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -45,13 +39,14 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.CONTROL_EC2_IP }} >> ~/.ssh/known_hosts
 
-      # 7️⃣ Sync Ansible from GitHub to Control Node
+      # 5️⃣ Sync Ansible code to Control EC2 (SOURCE OF TRUTH = GITHUB)
       - name: Sync Ansible code to Control EC2
         run: |
           rsync -avz ansible/ \
             ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }}:/home/ubuntu/ansible/
 
-      # 8️⃣ Detect which color is currently LIVE
+
+      # 6️⃣ Detect inactive frontend color
       - name: Detect inactive color via Ansible
         id: detect
         run: |
@@ -61,7 +56,8 @@ jobs:
 
             cd ~/ansible/hostel
 
-            OUTPUT=$(ansible-playbook -i inventory.ini detect_color.yml \
+            OUTPUT=$(ansible-playbook -i inventory.ini deploy.yml --check \
+              -e live_color=blue \
               --vault-password-file ~/.vault_pass)
 
             echo "$OUTPUT" | tee /tmp/ansible.out
@@ -75,25 +71,13 @@ jobs:
 
           echo "inactive_color=$(ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} cat /tmp/color.txt | cut -d= -f2)" >> $GITHUB_OUTPUT
 
-      # 9️⃣ Deploy to INACTIVE color and switch traffic
+      # 7️⃣ Deploy (frontend blue–green + backend rolling)
       - name: Deploy and Switch Traffic
         run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << EOF
-            echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.vault_pass
-            chmod 600 ~/.vault_pass
-
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
             cd ~/ansible/hostel
-
             ansible-playbook -i inventory.ini deploy.yml \
               -e live_color=${{ steps.detect.outputs.inactive_color }} \
               --vault-password-file ~/.vault_pass
           EOF
 
-      # 🔟 Optional: Cleanup old color container
-      - name: Cleanup old frontend color
-        run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << EOF
-            cd ~/ansible/hostel
-            ansible-playbook -i inventory.ini cleanup.yml \
-              --vault-password-file ~/.vault_pass
-          EOF

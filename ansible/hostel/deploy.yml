@@ -26,18 +26,6 @@
         version: main
         force: yes
 
-    - name: Create backend .env file
-      copy:
-        dest: "{{ app_dir }}/server/.env"
-        content: |
-          PORT={{ PORT }}
-          NODE_ENV={{ NODE_ENV }}
-          JWT_SECRET={{ JWT_SECRET }}
-          MONGO_URI={{ MONGO_URI }}
-          TEST_MONGO_URI={{ TEST_MONGO_URI }}
-          EmailUser={{ EMAIL_USER }}
-          EmailPass={{ EMAIL_PASS }}
-
     - name: Pull latest Docker images
       command: docker compose pull
       args:

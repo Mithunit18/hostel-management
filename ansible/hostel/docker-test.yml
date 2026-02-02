@@ -1,0 +1,7 @@
+---
+- name: Install Docker on app server
+  hosts: app
+  become: yes
+
+  roles:
+    - docker

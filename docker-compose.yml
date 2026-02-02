@@ -2,15 +2,21 @@ services:
   backend:
     image: mithun039/hostel-outpass-backend:latest
     container_name: backend
-    networks: [hostel-app-network]
+    env_file:
+      - server/.env
+    networks:
+      - hostel-app-network
+
 
   frontend-blue:
     image: mithun039/hostel-outpass-frontend:blue
-    networks: [hostel-app-network]
+    networks:
+      - hostel-app-network
 
   frontend-green:
     image: mithun039/hostel-outpass-frontend:green
-    networks: [hostel-app-network]
+    networks:
+      - hostel-app-network
 
   nginx:
     image: nginx:alpine
@@ -23,7 +29,8 @@ services:
       - backend
       - frontend-blue
       - frontend-green
-    networks: [hostel-app-network]
+    networks:
+      - hostel-app-network
 
 networks:
   hostel-app-network:

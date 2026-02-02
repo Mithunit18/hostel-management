@@ -17,67 +17,69 @@ jobs:
       # 2️⃣ Login to Docker Hub
       - name: Docker Login
         run: |
-          echo "${{ secrets.DOCKER_TOKEN }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          echo "${{ secrets.DOCKER_TOKEN }}" | docker login \
+            -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      # 3️⃣ Build & push FRONTEND image (blue–green)
+      # 3️⃣ Build & push FRONTEND image
       - name: Build and Push Frontend Image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-frontend:latest -f Dockerfile.frontend .
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-frontend:latest \
+            -f Dockerfile.frontend .
           docker push ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-frontend:latest
 
-      # 4️⃣ Build & push BACKEND image (rolling)
+      # 4️⃣ Build & push BACKEND image
       - name: Build and Push Backend Image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest -f Dockerfile.backend .
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest \
+            -f Dockerfile.backend .
           docker push ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest
 
-      # 5️⃣ Setup SSH
+      # 5️⃣ Setup SSH (CONTROL NODE ACCESS)
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/hostel-outpass-key.pem
+          chmod 600 ~/.ssh/hostel-outpass-key.pem
           ssh-keyscan -H ${{ secrets.CONTROL_EC2_IP }} >> ~/.ssh/known_hosts
 
-      # 5️⃣ Sync Ansible code to Control EC2 (SOURCE OF TRUTH = GITHUB)
-      - name: Sync Ansible code to Control EC2
+      # 6️⃣ Sync Ansible code to Control Node
+      - name: Sync Ansible code
         run: |
           rsync -avz ansible/ \
             ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }}:/home/ubuntu/ansible/
 
-
-      # 6️⃣ Detect inactive frontend color
-      - name: Detect inactive color via Ansible
+      # 7️⃣ Detect CURRENT live color (single source of truth = NGINX)
+      - name: Detect current live color
         id: detect
         run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
-            echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.vault_pass
-            chmod 600 ~/.vault_pass
-
+          ssh -i ~/.ssh/hostel-outpass-key.pem \
+            ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
             cd ~/ansible/hostel
 
-            OUTPUT=$(ansible-playbook -i inventory.ini deploy.yml --check \
-              -e live_color=blue \
-              --vault-password-file ~/.vault_pass)
+            CURRENT_COLOR=$(ansible-playbook -i inventory.ini deploy.yml \
+              --check | grep "current_live_color" | awk '{print $2}')
 
-            echo "$OUTPUT" | tee /tmp/ansible.out
-
-            if echo "$OUTPUT" | grep -q "current_live_color: blue"; then
+            if [ "$CURRENT_COLOR" = "blue" ]; then
               echo "inactive_color=green" > /tmp/color.txt
             else
               echo "inactive_color=blue" > /tmp/color.txt
             fi
           EOF
 
-          echo "inactive_color=$(ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} cat /tmp/color.txt | cut -d= -f2)" >> $GITHUB_OUTPUT
+          echo "inactive_color=$(ssh -i ~/.ssh/hostel-outpass-key.pem \
+            ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} cat /tmp/color.txt | cut -d= -f2)" \
+            >> $GITHUB_OUTPUT
 
-      # 7️⃣ Deploy (frontend blue–green + backend rolling)
+      # 8️⃣ Deploy inactive frontend + backend, then switch traffic
       - name: Deploy and Switch Traffic
         run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
+          ssh -i ~/.ssh/hostel-outpass-key.pem \
+            ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
+            echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.vault_pass
+            chmod 600 ~/.vault_pass
+
             cd ~/ansible/hostel
             ansible-playbook -i inventory.ini deploy.yml \
               -e live_color=${{ steps.detect.outputs.inactive_color }} \
               --vault-password-file ~/.vault_pass
           EOF
-

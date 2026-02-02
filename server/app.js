@@ -22,4 +22,9 @@ app.use('/api/hod', hodRoutes);
 app.use("/api/warden",wardenRoutes);
 app.use("/api/gate", gateRoutes);
 
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
+
 export default app;

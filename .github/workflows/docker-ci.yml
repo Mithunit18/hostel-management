@@ -51,12 +51,15 @@ jobs:
           ssh -i ~/.ssh/hostel-outpass-key.pem \
             ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} \
             "mkdir -p /home/ubuntu/ansible"
-
+            
       # 7️⃣ Sync Ansible code to Control Node
       - name: Sync Ansible code
         run: |
-          rsync -avz ansible/ \
+          rsync -avz \
+            -e "ssh -i ~/.ssh/hostel-outpass-key.pem" \
+            ansible/ \
             ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }}:/home/ubuntu/ansible/
+
 
 
       # 7️⃣ Detect CURRENT live color (single source of truth = NGINX)

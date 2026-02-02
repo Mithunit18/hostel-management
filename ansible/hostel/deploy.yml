@@ -1,5 +1,5 @@
 - name: Deploy Hostel Outpass App
-  hosts: app_server
+  hosts: app
   become: yes
 
   vars_files:

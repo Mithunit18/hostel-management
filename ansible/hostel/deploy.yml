@@ -10,7 +10,7 @@
     repo_url: https://github.com/Mithunit18/hostel-management.git
 
   roles:
-    - { role: nginx, when: enable_nginx | default(false) }
+    - nginx
 
   tasks:
     - name: Install git

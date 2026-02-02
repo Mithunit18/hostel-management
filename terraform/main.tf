@@ -1,12 +1,74 @@
 # ---------------------------
-# Security Group
+# VPC
 # ---------------------------
-resource "aws_security_group" "hostel_sg" {
-  name        = "${var.project_name}-${var.environment}-sg"
-  description = "Security group for hostel outpass EC2"
+resource "aws_vpc" "main" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = {
+    Name = "${var.project_name}-${var.environment}-vpc"
+  }
+}
+
+# ---------------------------
+# Internet Gateway
+# ---------------------------
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "${var.project_name}-${var.environment}-igw"
+  }
+}
+
+# ---------------------------
+# Public Subnet
+# ---------------------------
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "ap-south-1a"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "${var.project_name}-${var.environment}-public-subnet"
+  }
+}
+
+# ---------------------------
+# Route Table
+# ---------------------------
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+
+  tags = {
+    Name = "${var.project_name}-${var.environment}-public-rt"
+  }
+}
+
+# ---------------------------
+# Route Table Association
+# ---------------------------
+resource "aws_route_table_association" "public_assoc" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public_rt.id
+}
+
+# ---------------------------
+# Security Group - App Server
+# ---------------------------
+resource "aws_security_group" "app_sg" {
+  name        = "${var.project_name}-${var.environment}-app-sg"
+  description = "Security group for Hostel Outpass App"
+  vpc_id      = aws_vpc.main.id
 
   ingress {
-    description = "SSH access"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
@@ -14,7 +76,6 @@ resource "aws_security_group" "hostel_sg" {
   }
 
   ingress {
-    description = "Frontend access"
     from_port   = 3000
     to_port     = 3000
     protocol    = "tcp"
@@ -29,38 +90,19 @@ resource "aws_security_group" "hostel_sg" {
   }
 
   tags = {
-    Name        = "${var.project_name}-${var.environment}-sg"
-    Project     = var.project_name
-    Environment = var.environment
+    Name = "${var.project_name}-${var.environment}-app-sg"
   }
 }
 
 # ---------------------------
-# EC2 Instance
-# ---------------------------
-resource "aws_instance" "hostel_ec2" {
-  ami                    = "ami-019715e0d74f695be" # Ubuntu 24.04 (Mumbai)
-  instance_type          = var.instance_type
-  key_name               = var.key_name
-  vpc_security_group_ids = [aws_security_group.hostel_sg.id]
-
-  tags = {
-    Name        = "${var.project_name}-${var.environment}-ec2"
-    Project     = var.project_name
-    Environment = var.environment
-  }
-}
-
-
-# ---------------------------
-# Security Group - Ansible Control (SSH only)
+# Security Group - Ansible Control
 # ---------------------------
 resource "aws_security_group" "ansible_sg" {
   name        = "${var.project_name}-${var.environment}-ansible-sg"
-  description = "Security group for Ansible control node (SSH only)"
+  description = "Security group for Ansible Control Node"
+  vpc_id      = aws_vpc.main.id
 
   ingress {
-    description = "SSH access"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
@@ -75,27 +117,38 @@ resource "aws_security_group" "ansible_sg" {
   }
 
   tags = {
-    Name        = "${var.project_name}-${var.environment}-ansible-sg"
-    Project     = var.project_name
-    Environment = var.environment
-    Role        = "Ansible-Control"
+    Name = "${var.project_name}-${var.environment}-ansible-sg"
   }
 }
 
 # ---------------------------
-# EC2 Instance - Ansible Control Node
+# EC2 - App Server
 # ---------------------------
-resource "aws_instance" "ansible_control_ec2" {
-  ami                    = "ami-019715e0d74f695be" # Ubuntu 24.04 (Mumbai)
-  instance_type          = var.instance_type       # t3.micro (free tier)
-  key_name               = var.key_name
-  vpc_security_group_ids = [aws_security_group.ansible_sg.id]
+resource "aws_instance" "app_server" {
+  ami                         = "ami-019715e0d74f695be" # Ubuntu 24.04 Mumbai
+  instance_type               = var.instance_type
+  key_name                    = var.key_name
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.app_sg.id]
+  associate_public_ip_address = true
 
   tags = {
-    Name        = var.ansible_instance_name
-    Project     = var.project_name
-    Environment = var.environment
-    Role        = "Ansible-Control"
+    Name = "${var.project_name}-${var.environment}-app-server"
   }
 }
 
+# ---------------------------
+# EC2 - Ansible Control Node
+# ---------------------------
+resource "aws_instance" "ansible_control" {
+  ami                         = "ami-019715e0d74f695be"
+  instance_type               = var.instance_type
+  key_name                    = var.key_name
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.ansible_sg.id]
+  associate_public_ip_address = true
+
+  tags = {
+    Name = var.ansible_instance_name
+  }
+}

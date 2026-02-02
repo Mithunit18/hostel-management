@@ -1,24 +1,24 @@
-output "ec2_instance_id" {
-  description = "EC2 Instance ID"
-  value       = aws_instance.hostel_ec2.id
+output "app_server_instance_id" {
+  description = "App server EC2 instance ID"
+  value       = aws_instance.app_server.id
 }
 
-output "ec2_public_ip" {
-  description = "EC2 Public IP"
-  value       = aws_instance.hostel_ec2.public_ip
+output "app_server_public_ip" {
+  description = "App server public IP"
+  value       = aws_instance.app_server.public_ip
 }
 
-output "security_group_id" {
-  description = "Security Group ID"
-  value       = aws_security_group.hostel_sg.id
+output "app_security_group_id" {
+  description = "App server security group ID"
+  value       = aws_security_group.app_sg.id
 }
 
 output "ansible_control_instance_id" {
-  description = "Ansible Control EC2 Instance ID"
-  value       = aws_instance.ansible_control_ec2.id
+  description = "Ansible control EC2 instance ID"
+  value       = aws_instance.ansible_control.id
 }
 
 output "ansible_control_public_ip" {
-  description = "Ansible Control EC2 Public IP"
-  value       = aws_instance.ansible_control_ec2.public_ip
+  description = "Ansible control public IP"
+  value       = aws_instance.ansible_control.public_ip
 }

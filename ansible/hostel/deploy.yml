@@ -28,8 +28,9 @@
 
     - name: Render nginx config (blue-green)
       template:
-        src: nginx/hostel.conf.j2
+        src: hostel.conf.j2
         dest: "{{ app_dir }}/nginx/hostel.conf"
+
 
     - name: Start or update containers (no downtime)
       command: docker compose up -d

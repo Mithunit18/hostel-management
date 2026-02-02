@@ -1,4 +1,4 @@
-name: Stage-1 Simple Deploy
+name: Zero Downtime Blue-Green Deploy
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout code
+      # 1️⃣ Checkout latest code
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -31,7 +31,13 @@ jobs:
           docker build -t ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest -f Dockerfile.backend .
           docker push ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest
 
-      # 5️⃣ Setup SSH
+      # 5️⃣ Verify images exist on Docker Hub (fail fast if push failed)
+      - name: Verify Docker Images
+        run: |
+          docker pull ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-frontend:latest
+          docker pull ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest
+
+      # 6️⃣ Setup SSH to Control Node
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -39,20 +45,55 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.CONTROL_EC2_IP }} >> ~/.ssh/known_hosts
 
-      # 6️⃣ Sync Ansible code to Control EC2
+      # 7️⃣ Sync Ansible from GitHub to Control Node
       - name: Sync Ansible code to Control EC2
         run: |
           rsync -avz ansible/ \
             ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }}:/home/ubuntu/ansible/
 
-      # 7️⃣ Deploy (Stage-1 SIMPLE deploy)
-      - name: Deploy via Ansible (No Blue-Green)
+      # 8️⃣ Detect which color is currently LIVE
+      - name: Detect inactive color via Ansible
+        id: detect
         run: |
           ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
             echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.vault_pass
             chmod 600 ~/.vault_pass
 
             cd ~/ansible/hostel
-            ansible-playbook deploy.yml \
+
+            OUTPUT=$(ansible-playbook -i inventory.ini detect_color.yml \
+              --vault-password-file ~/.vault_pass)
+
+            echo "$OUTPUT" | tee /tmp/ansible.out
+
+            if echo "$OUTPUT" | grep -q "current_live_color: blue"; then
+              echo "inactive_color=green" > /tmp/color.txt
+            else
+              echo "inactive_color=blue" > /tmp/color.txt
+            fi
+          EOF
+
+          echo "inactive_color=$(ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} cat /tmp/color.txt | cut -d= -f2)" >> $GITHUB_OUTPUT
+
+      # 9️⃣ Deploy to INACTIVE color and switch traffic
+      - name: Deploy and Switch Traffic
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << EOF
+            echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.vault_pass
+            chmod 600 ~/.vault_pass
+
+            cd ~/ansible/hostel
+
+            ansible-playbook -i inventory.ini deploy.yml \
+              -e live_color=${{ steps.detect.outputs.inactive_color }} \
+              --vault-password-file ~/.vault_pass
+          EOF
+
+      # 🔟 Optional: Cleanup old color container
+      - name: Cleanup old frontend color
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << EOF
+            cd ~/ansible/hostel
+            ansible-playbook -i inventory.ini cleanup.yml \
               --vault-password-file ~/.vault_pass
           EOF

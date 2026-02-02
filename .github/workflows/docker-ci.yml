@@ -34,13 +34,19 @@ jobs:
             -f Dockerfile.backend .
           docker push ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest
 
-      # 5️⃣ Setup SSH (CONTROL NODE ACCESS)
       - name: Setup SSH
+        shell: bash
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/hostel-outpass-key.pem
-          chmod 600 ~/.ssh/hostel-outpass-key.pem
-          ssh-keyscan -H ${{ secrets.CONTROL_EC2_IP }} >> ~/.ssh/known_hosts
+          set -e
+
+          mkdir -p "$HOME/.ssh"
+
+          printf "%s\n" "${{ secrets.SSH_PRIVATE_KEY }}" > "$HOME/.ssh/hostel-outpass-key.pem"
+
+          chmod 600 "$HOME/.ssh/hostel-outpass-key.pem"
+
+          ssh-keyscan -H "${{ secrets.CONTROL_EC2_IP }}" >> "$HOME/.ssh/known_hosts"
+
 
       # 6️⃣ Sync Ansible code to Control Node
       - name: Sync Ansible code

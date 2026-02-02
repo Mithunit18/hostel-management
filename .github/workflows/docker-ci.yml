@@ -34,19 +34,15 @@ jobs:
             -f Dockerfile.backend .
           docker push ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest
 
+      # 5️⃣ Setup SSH
       - name: Setup SSH
         shell: bash
         run: |
           set -e
-
           mkdir -p "$HOME/.ssh"
-
           printf "%s\n" "${{ secrets.SSH_PRIVATE_KEY }}" > "$HOME/.ssh/hostel-outpass-key.pem"
-
           chmod 600 "$HOME/.ssh/hostel-outpass-key.pem"
-
           ssh-keyscan -H "${{ secrets.CONTROL_EC2_IP }}" >> "$HOME/.ssh/known_hosts"
-
 
       # 6️⃣ Sync Ansible code to Control Node
       - name: Sync Ansible code
@@ -81,11 +77,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/hostel-outpass-key.pem \
             ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
-            echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.vault_pass
-            chmod 600 ~/.vault_pass
-
             cd ~/ansible/hostel
             ansible-playbook -i inventory.ini deploy.yml \
-              -e live_color=${{ steps.detect.outputs.inactive_color }} \
-              --vault-password-file ~/.vault_pass
+              -e live_color=${{ steps.detect.outputs.inactive_color }}
           EOF

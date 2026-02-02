@@ -1,16 +1,11 @@
-- name: Deploy Hostel Outpass App
+- name: Deploy Hostel Outpass App (Model A)
   hosts: app
   become: yes
-
-  vars_files:
-    - secrets.yml
 
   vars:
     app_dir: /home/ubuntu/hostel-app
     repo_url: https://github.com/Mithunit18/hostel-management.git
-
-  roles:
-    - nginx
+    live_color: "blue"   # change to green to switch
 
   tasks:
     - name: Install git
@@ -31,12 +26,17 @@
       args:
         chdir: "{{ app_dir }}"
 
-    - name: Stop existing containers
-      command: docker compose down
+    - name: Render nginx config (blue-green)
+      template:
+        src: nginx/hostel.conf.j2
+        dest: "{{ app_dir }}/nginx/hostel.conf"
+
+    - name: Start or update containers (no downtime)
+      command: docker compose up -d
       args:
         chdir: "{{ app_dir }}"
 
-    - name: Start containers fresh
-      command: docker compose up -d
+    - name: Reload nginx container only
+      command: docker compose up -d nginx
       args:
         chdir: "{{ app_dir }}"

@@ -27,12 +27,13 @@ jobs:
             -f Dockerfile.frontend .
           docker push ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-frontend:latest
 
-      # 4️⃣ Build & push BACKEND image
+
       - name: Build and Push Backend Image
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest \
             -f Dockerfile.backend .
           docker push ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest
+
 
       # 5️⃣ Setup SSH
       - name: Setup SSH

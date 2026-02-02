@@ -1,16 +1,16 @@
 server {
-    listen 80 default_server;
+    listen 80;
     server_name _;
 
     {% if live_color == "blue" %}
-    set $upstream_port {{ blue_port }};
+    set $frontend_upstream frontend-blue;
     {% else %}
-    set $upstream_port {{ green_port }};
+    set $frontend_upstream frontend-green;
     {% endif %}
 
     # Frontend (Blue / Green)
     location / {
-        proxy_pass http://127.0.0.1:$upstream_port;
+        proxy_pass http://$frontend_upstream:3000;
         proxy_http_version 1.1;
 
         proxy_set_header Host $host;
@@ -24,7 +24,7 @@ server {
 
     # Backend API
     location /api/ {
-        proxy_pass http://127.0.0.1:5000;
+        proxy_pass http://backend:5000;
         proxy_http_version 1.1;
 
         proxy_set_header Host $host;

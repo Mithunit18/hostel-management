@@ -79,8 +79,10 @@ jobs:
             ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
             cd ~/ansible/hostel
 
-            CURRENT_COLOR=$(ansible-playbook -i inventory.ini deploy.yml \
+            CURRENT_COLOR=$(env -i HOME=$HOME PATH=$PATH \
+              ansible-playbook -i inventory.ini deploy.yml \
               --check | grep "current_live_color" | awk '{print $2}')
+
 
             if [ "$CURRENT_COLOR" = "blue" ]; then
               echo "inactive_color=green" > /tmp/color.txt
@@ -99,6 +101,7 @@ jobs:
           ssh -i ~/.ssh/hostel-outpass-key.pem \
             ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
             cd ~/ansible/hostel
-            ansible-playbook -i inventory.ini deploy.yml \
-              -e live_color=${{ steps.detect.outputs.inactive_color }}
+            env -i HOME=$HOME PATH=$PATH \
+              ansible-playbook -i inventory.ini deploy.yml \
+                -e live_color=${{ steps.detect.outputs.inactive_color }}
           EOF

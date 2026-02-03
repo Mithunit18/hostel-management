@@ -21,16 +21,32 @@
         version: main
         force: yes
 
-    - name: Login to Docker Hub
-      become: yes
-      environment:
-        DOCKER_USERNAME: "{{ lookup('env', 'DOCKER_USERNAME') }}"
-        DOCKER_TOKEN: "{{ lookup('env', 'DOCKER_TOKEN') }}"
-      command: >
-        docker login
-        -u "{{ lookup('env', 'DOCKER_USERNAME') }}"
-        -p "{{ lookup('env', 'DOCKER_TOKEN') }}"
-      no_log: true
+- name: Ensure docker config directory exists
+  become: yes
+  file:
+    path: /root/.docker
+    state: directory
+    mode: '0700'
+
+- name: Ensure docker config directory exists
+  become: yes
+  file:
+    path: /root/.docker
+    state: directory
+    mode: '0700'
+
+- name: Login to Docker Hub
+  become: yes
+  environment:
+    DOCKER_USERNAME: "{{ lookup('env', 'DOCKER_USERNAME') }}"
+    DOCKER_TOKEN: "{{ lookup('env', 'DOCKER_TOKEN') }}"
+  command: >
+    docker login
+    -u "{{ lookup('env', 'DOCKER_USERNAME') }}"
+    -p "{{ lookup('env', 'DOCKER_TOKEN') }}"
+  no_log: true
+
+
 
 
     - name: Pull latest Docker images

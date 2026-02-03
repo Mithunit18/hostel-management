@@ -1,0 +1,7 @@
+PORT: "5000"
+MONGO_URI: "mongodb+srv://mithunmit2023_db_user:f9DUwMqy7Um55Tyb@cluster0.pedzv7u.mongodb.net/hostel?appName=Cluster0"
+TEST_MONGO_URI: "mongodb+srv://mithunmit2023_db_user:f9DUwMqy7Um55Tyb@cluster0.pedzv7u.mongodb.net/test_DB?appName=Cluster0"
+JWT_SECRET: "mysupersecretkey123"
+EmailUser: "amthemithun@gmail.com"
+EmailPass: "cxwb acey scnx vkkr"
+NODE_ENV: "production"

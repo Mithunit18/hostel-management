@@ -27,15 +27,25 @@
         state: directory
         mode: '0700'
 
-    - name: Login to Docker Hub
+    - name: Ensure docker config directory exists
+      become: yes
+      file:
+        path: /root/.docker
+        state: directory
+        mode: '0700'
+
+    - name: Login to Docker Hub (use password via stdin)
+      become: yes
       environment:
         DOCKER_USERNAME: "{{ lookup('env', 'DOCKER_USERNAME') }}"
         DOCKER_TOKEN: "{{ lookup('env', 'DOCKER_TOKEN') }}"
-      command: >
-        docker login
-        -u "{{ lookup('env', 'DOCKER_USERNAME') }}"
-        -p "{{ lookup('env', 'DOCKER_TOKEN') }}"
+      shell: |
+        # use --password-stdin to avoid tty/prompt issues
+        echo "{{ lookup('env', 'DOCKER_TOKEN') }}" | docker login -u "{{ lookup('env', 'DOCKER_USERNAME') }}" --password-stdin
+      args:
+        executable: /bin/bash
       no_log: true
+
 
     - name: Pull latest Docker images
       command: docker compose pull

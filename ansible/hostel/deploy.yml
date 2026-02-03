@@ -5,7 +5,7 @@
   vars:
     app_dir: /home/ubuntu/hostel-app
     repo_url: https://github.com/Mithunit18/hostel-management.git
-    live_color: "blue"   # change to green to switch
+    live_color: "blue"
 
   tasks:
     - name: Install git
@@ -21,6 +21,14 @@
         version: main
         force: yes
 
+    # ✅ Docker login using ENV vars (from GitHub Actions)
+    - name: Login to Docker Hub
+      command: >
+        docker login
+        -u "{{ lookup('env', 'DOCKER_USERNAME') }}"
+        -p "{{ lookup('env', 'DOCKER_TOKEN') }}"
+      no_log: true
+
     - name: Pull latest Docker images
       command: docker compose pull
       args:
@@ -30,8 +38,6 @@
       template:
         src: hostel.conf.j2
         dest: "{{ app_dir }}/nginx/hostel.conf"
-
-
 
     - name: Start or update containers (no downtime)
       command: docker compose up -d

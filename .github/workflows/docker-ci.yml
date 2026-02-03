@@ -71,7 +71,10 @@ jobs:
       - name: Detect current live color
         id: detect
         run: |
-          env -i HOME=$HOME PATH=$PATH ssh -i ~/.ssh/hostel-outpass-key.pem \
+          env -i HOME=$HOME PATH=$PATH \
+              DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} \
+              DOCKER_TOKEN=${{ secrets.DOCKER_TOKEN }} \
+          ssh -i ~/.ssh/hostel-outpass-key.pem \
             ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
             cd ~/ansible/hostel
             unset ANSIBLE_EXTRA_VARS || true
@@ -94,8 +97,12 @@ jobs:
       # 9️⃣ Deploy inactive frontend + backend, then switch traffic
       - name: Deploy and Switch Traffic
         run: |
-          env -i HOME=$HOME PATH=$PATH ssh -i ~/.ssh/hostel-outpass-key.pem \
+          env -i HOME=$HOME PATH=$PATH \
+              DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} \
+              DOCKER_TOKEN=${{ secrets.DOCKER_TOKEN }} \
+          ssh -i ~/.ssh/hostel-outpass-key.pem \
             ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
+
             cd ~/ansible/hostel
             unset ANSIBLE_EXTRA_VARS || true
 

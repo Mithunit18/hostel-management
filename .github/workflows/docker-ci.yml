@@ -35,14 +35,12 @@ jobs:
           docker push ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-frontend:blue
           docker push ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-frontend:green
 
-
-
+      # 4️⃣ Build & push BACKEND image
       - name: Build and Push Backend Image
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest \
             -f Dockerfile.backend .
           docker push ${{ secrets.DOCKER_USERNAME }}/hostel-outpass-backend:latest
-
 
       # 5️⃣ Setup SSH
       - name: Setup SSH
@@ -57,32 +55,30 @@ jobs:
       # 6️⃣ Ensure Ansible directory exists on Control Node
       - name: Prepare Ansible directory on Control Node
         run: |
-          ssh -i ~/.ssh/hostel-outpass-key.pem \
+          env -i HOME=$HOME PATH=$PATH ssh -i ~/.ssh/hostel-outpass-key.pem \
             ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} \
             "mkdir -p /home/ubuntu/ansible"
-            
+
       # 7️⃣ Sync Ansible code to Control Node
       - name: Sync Ansible code
         run: |
-          rsync -avz \
+          env -i HOME=$HOME PATH=$PATH rsync -avz \
             -e "ssh -i ~/.ssh/hostel-outpass-key.pem" \
             ansible/ \
             ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }}:/home/ubuntu/ansible/
 
-
-
-      # 7️⃣ Detect CURRENT live color (single source of truth = NGINX)
+      # 8️⃣ Detect CURRENT live color (single source of truth = NGINX)
       - name: Detect current live color
         id: detect
         run: |
           env -i HOME=$HOME PATH=$PATH ssh -i ~/.ssh/hostel-outpass-key.pem \
             ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
             cd ~/ansible/hostel
+            unset ANSIBLE_EXTRA_VARS || true
 
-            CURRENT_COLOR=$(env -i HOME=$HOME PATH=$PATH \
-              ansible-playbook -i inventory.ini deploy.yml \
-              --check | grep "current_live_color" | awk '{print $2}')
-
+            CURRENT_COLOR=$(env -u ANSIBLE_EXTRA_VARS \
+              ansible-playbook -i inventory.ini deploy.yml --check \
+              | grep "current_live_color" | awk '{print $2}')
 
             if [ "$CURRENT_COLOR" = "blue" ]; then
               echo "inactive_color=green" > /tmp/color.txt
@@ -91,17 +87,19 @@ jobs:
             fi
           EOF
 
-          echo "inactive_color=$(ssh -i ~/.ssh/hostel-outpass-key.pem \
+          echo "inactive_color=$(env -i HOME=$HOME PATH=$PATH ssh -i ~/.ssh/hostel-outpass-key.pem \
             ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} cat /tmp/color.txt | cut -d= -f2)" \
             >> $GITHUB_OUTPUT
 
-      # 8️⃣ Deploy inactive frontend + backend, then switch traffic
+      # 9️⃣ Deploy inactive frontend + backend, then switch traffic
       - name: Deploy and Switch Traffic
         run: |
           env -i HOME=$HOME PATH=$PATH ssh -i ~/.ssh/hostel-outpass-key.pem \
             ${{ secrets.EC2_USER }}@${{ secrets.CONTROL_EC2_IP }} << 'EOF'
             cd ~/ansible/hostel
-            env -i HOME=$HOME PATH=$PATH \
+            unset ANSIBLE_EXTRA_VARS || true
+
+            env -u ANSIBLE_EXTRA_VARS \
               ansible-playbook -i inventory.ini deploy.yml \
                 -e live_color=${{ steps.detect.outputs.inactive_color }}
           EOF

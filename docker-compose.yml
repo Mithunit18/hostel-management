@@ -16,13 +16,11 @@ services:
 
   frontend-blue:
     image: mithun039/hostel-outpass-frontend:blue
-    container_name: frontend-blue
     networks:
       - hostel-app-network
 
   frontend-green:
     image: mithun039/hostel-outpass-frontend:green
-    container_name: frontend-green
     networks:
       - hostel-app-network
 

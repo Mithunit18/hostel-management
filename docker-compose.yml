@@ -2,8 +2,15 @@ services:
   backend:
     image: mithun039/hostel-outpass-backend:latest
     container_name: backend
-    env_file:
-      - server/.env
+  environment:
+    MONGO_URI: ${MONGO_URI}
+    TEST_MONGO_URI: ${TEST_MONGO_URI}
+    JWT_SECRET: ${JWT_SECRET}
+    EmailUser: ${EmailUser}
+    EmailPass: ${EmailPass}
+    NODE_ENV: ${NODE_ENV}
+    PORT: ${PORT}
+
     networks:
       - hostel-app-network
 

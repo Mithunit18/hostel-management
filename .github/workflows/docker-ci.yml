@@ -108,12 +108,5 @@ jobs:
 
             env -u ANSIBLE_EXTRA_VARS \
               ansible-playbook -i inventory.ini deploy.yml \
-                -e live_color=${{ steps.detect.outputs.inactive_color }} \
-                -e PORT="${{ secrets.PORT }}" \
-                -e MONGO_URI="${{ secrets.MONGO_URI }}" \
-                -e TEST_MONGO_URI="${{ secrets.TEST_MONGO_URI }}" \
-                -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-                -e EmailUser="${{ secrets.EMAIL_USER }}" \
-                -e EmailPass="${{ secrets.EMAIL_PASS }}" \
-                -e NODE_ENV="production"
+                -e live_color=${{ steps.detect.outputs.inactive_color }}
           EOF

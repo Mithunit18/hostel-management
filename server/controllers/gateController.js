@@ -57,8 +57,8 @@ export const verifyGatePass = async (req, res) => {
       outpass.gateStatus = "returned";
       outpass.actualInTime = now;
       
-      // Permanently Invalidate QR
-      outpass.qrToken = null; 
+      // Permanently Invalidate QR (use undefined so sparse index ignores it)
+      outpass.qrToken = undefined; 
       outpass.status = "completed"; 
       await outpass.save();
 
